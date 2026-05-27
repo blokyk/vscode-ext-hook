@@ -22,23 +22,134 @@
 # (such as writing most of this in bash instead of nix...)
 
 main() {
+    local ext ext_dir ext_name
+    local variant="$1"
+
     # if there are no vscodeExtensions specified
-    if [[ ! -v vscodeExtensions ]] || [[ -z "${vscodeExtensions[*]}" ]]; then
+    if [[ -z "${vscodeExtensions:-}" ]]; then
         echo "warn: vscodeProfileHook used, but no vscodeExtensions were actually specified"
         return
     fi
 
-    # 1. put all the extensions from `$vscodeExtensions` into a temp folder
-    echo "${vscodeExtensions[@]}"
-    mkdir -p "${TMPDIR:-$TMP}/vscode-extensions"
+    # 1. create a temp folder and start adding base user extensions to it
+    ext_dir="${TMPDIR:-$TMP}/$variant-extensions"
+    mkdir -p -- "$ext_dir"
+    echo "using ext_dir $ext_dir"
 
-    # 2. get base user extensions, making sure not to overwrite devshell-specified ones
+    for ext in "$HOME/.$variant/extensions/"*; do
+        ext_name="$(stripVersion "$(basename "$ext")")"
+        # don't copy the old extensions.json
+        if [[ "$ext_name" = "extensions.json" ]]; then
+            continue
+        fi
 
-    # 3. add exts from $vscodeExtensions to the existing `extensions.json` file
+        # if we've already installed an extension with that name,
+        # that means the user has a somewhat broken setup with duplicate
+        # extensions... just silently skip installing them
+        if [[ -e "$ext_dir/$ext_name" ]]; then
+            continue
+        fi
 
-    # 4. generate vscode wrapper (note: with correct argv0!) and put it in the temp folder
+        ln -s -- "$ext" "$ext_dir/$ext_name"
+        generateSingleManifest "$ext_dir/$ext_name" \
+            > "$ext_dir/$ext_name.manifest.json"
+    done
 
-    # 5. add temp folder to PATH, as an export
+    # 2. put all the extensions from `$vscodeExtensions` into the temp folder,
+    #    overwriting base ones if they already exist
+
+    # note: unfortunately, mkShell does not have structuredAttrs by default,
+    #       so if `__structuredAttrs` is not set, we need to wordsplit ourselves
+    if (( ! ${__structuredAttrs:-0} )); then
+        read -ra vscodeExtensions <<< "$vscodeExtensions"
+    fi
+
+    for ext in "${vscodeExtensions[@]}"; do
+        # ugly workaround for bash not expanding globs when expected
+        ext_=("$ext/share/vscode/extensions/"*)
+        ext="${ext_[0]}"
+
+        ext_name="$(stripVersion "$(basename "$ext")")"
+
+        if [[ -e "$ext_dir/$ext_name" ]]; then
+            echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: in this shell, the nix-shell-provided extension \e[1m'$ext_name'\e[0m will take precedence over user-installed version"
+            rm "$ext_dir/$ext_name"
+        fi
+
+        ln --force -s -- "$ext" "$ext_dir/$ext_name"
+        generateSingleManifest "$ext_dir/$ext_name" \
+            > "$ext_dir/$ext_name.manifest.json"
+    done
+
+    # 3. generate the `extensions.json` file
+    jq '.' \
+        --slurp "$ext_dir"/*.manifest.json \
+    > "$ext_dir/extensions.json"
+
+    # 4. cleanup temporary manifests
+    # rm "$ext_dir"/*.manifest.json
 }
 
-main
+# the stdenv one is defined after hooks run -_-
+stripHash() {
+    local strippedName casematchOpt=0
+    # On separate line for `set -e`
+    strippedName="$(basename -- "$1")"
+    shopt -q nocasematch && casematchOpt=1
+    shopt -u nocasematch
+    if [[ "$strippedName" =~ ^[a-z0-9]{32}- ]]; then
+        echo "${strippedName:33}"
+    else
+        echo "$strippedName"
+    fi
+    if (( casematchOpt )); then shopt -s nocasematch; fi
+}
+
+# this removes the version number and build info (e.g. platform), so that
+# overwriting works correctly (e.g. we don't end up with foo-0.2 from the
+# user and foo-0.3 from the shell)
+stripVersion() {
+    local ext_name
+    ext_name="$(basename -- "$1")"
+    echo "${ext_name%%-[0-9]*}"
+}
+
+# $1: extension directory
+generateSingleManifest() {
+    jq '(.publisher + "." + .name) as $extid |
+{
+    identifier: {
+        id: $extid,
+        uuid: ""
+    },
+
+    version: .version,
+
+    relativeLocation: $extid,
+
+    location: {
+        "$mid": 1,
+        fsPath: "'"$1"'",
+        path: "'"$1"'",
+        scheme: "file",
+    },
+
+    metadata: {
+        id: "",
+        publisherId: "",
+        publisherDisplayName: .publisher,
+        targetPlatform: "undefined",
+        isApplicationScoped: false,
+        updated: false,
+        isPreReleaseVersion: false,
+        installedTimestamp: 0,
+        preRelease: 0
+    }
+}' "${1}/package.json"
+
+}
+
+if (( ! ${dontAddVscodeExtensions:-0} )); then
+    main "vscode"     # vscode uses ~/.vscode
+    main "vscode-oss" # vscodium uses ~/.vscode-oss
+fi

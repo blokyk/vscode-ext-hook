@@ -1,7 +1,10 @@
 # shellcheck shell=bash
 
-# dry-run mktemp to get the same path as the setup hook
-ext_dir="${TMPDIR:-$TMP}/vscode-extensions"
+if [[ "$0" = "codium" ]]; then
+    ext_dir="${TMPDIR:-$TMP}/vscode-oss-extensions"
+else
+    ext_dir="${TMPDIR:-$TMP}/vscode-extensions"
+fi
 
 if [[ ! -d "$ext_dir" ]]; then
     echo "ERROR: vscode setup hook didn't create extension folder" > /dev/stderr

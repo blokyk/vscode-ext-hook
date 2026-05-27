@@ -1,20 +1,15 @@
 let
   pins = import ./npins {};
   pkgs = import pins.nixpkgs {};
-  vscodeProfileHook = import ./default.nix {};
+  vscode-ext-hook = import ./default.nix {};
 in
 pkgs.mkShell {
   packages = [
-    vscodeProfileHook
+    vscode-ext-hook
   ];
 
   vscodeExtensions = with pkgs.vscode-extensions; [
     christian-kohler.path-intellisense
     jnoortheen.nix-ide
-    dart-code.flutter
   ];
-
-  shellHook = ''
-    # echo "$PATH"
-  '';
 }
