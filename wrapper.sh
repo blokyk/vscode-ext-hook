@@ -16,5 +16,5 @@ PATH="${PATH//:$our_path:/:}"
 PATH="${PATH#:}"
 PATH="${PATH%:}"
 
-exec "$(basename "$0")" --extension-dir "$ext_dir"
+exec "$(basename "$0")" --extensions-dir "$ext_dir" "${@}"
 
