@@ -1,4 +1,4 @@
-# `nix-ext-hook`
+# `vscode-ext-hook`
 
 A small `mkShell` setup hook[^1] to allow specifying vscode extensions to have
 installed if the user has vscode/vscodium.

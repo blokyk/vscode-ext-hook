@@ -34,7 +34,6 @@ main() {
     # 1. create a temp folder and start adding base user extensions to it
     ext_dir="${TMPDIR:-$TMP}/$variant-extensions"
     mkdir -p -- "$ext_dir"
-    echo "using ext_dir $ext_dir"
 
     for ext in "$HOME/.$variant/extensions/"*; do
         ext_name="$(stripVersion "$(basename "$ext")")"
