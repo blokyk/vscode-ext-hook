@@ -124,7 +124,7 @@ generateSingleManifest() {
 
     version: .version,
 
-    relativeLocation: $extid,
+    relativeLocation: "'"$(basename "$1")"'",
 
     location: {
         "$mid": 1,
