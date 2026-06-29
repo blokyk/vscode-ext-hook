@@ -51,7 +51,8 @@ main() {
 
         ln -s -- "$ext" "$ext_dir/$ext_name"
         generateSingleManifest "$ext_dir/$ext_name" \
-            > "$ext_dir/$ext_name.manifest.json"
+            > "$ext_dir/$ext_name.manifest.json" \
+        || echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: user-installed extension \e[1m'$ext_name'\e[0m doesn't have any package.json (is it corrupted?), skipping" >&2
     done
 
     # 2. put all the extensions from `$vscodeExtensions` into the temp folder,
@@ -71,7 +72,7 @@ main() {
         ext_name="$(stripVersion "$(basename "$ext")")"
 
         if [[ -e "$ext_dir/$ext_name" ]]; then
-            echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: in this shell, the nix-shell-provided extension \e[1m'$ext_name'\e[0m will take precedence over user-installed version"
+            echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: in this shell, the nix-shell-provided extension \e[1m'$ext_name'\e[0m will take precedence over user-installed version" >&2
             rm "$ext_dir/$ext_name"
         fi
 
@@ -87,6 +88,17 @@ main() {
 
     # 4. cleanup temporary manifests
     # rm "$ext_dir"/*.manifest.json
+
+    # this is so dumb...
+    # vscode tries to reuse the same extension host if two instances have the same
+    # profile, even if they don't have the same extension dir.
+    # to "fool" it into working correctly (i.e. starting a new extension host), we
+    # have to "create a new profile" and start it using that; thankfully, vscode is
+    # dumb enough to not see through symbolic links, so it's enough to just link to
+    # the original profile, which has the advantage of making sure global changes
+    # the user made in the wrapped vscode are persisted to their actual profile
+    # 5. create link to default vscode user-data-dir
+    ln -s "${XDG_CONFIG_HOME:-${HOME:-~}}/Code" "${TMPDIR:-$TMP}/Code" || true
 }
 
 # the stdenv one is defined after hooks run -_-
@@ -145,7 +157,6 @@ generateSingleManifest() {
         preRelease: 0
     }
 }' "${1}/package.json"
-
 }
 
 if (( ! ${dontAddVscodeExtensions:-0} )); then
