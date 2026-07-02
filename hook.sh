@@ -27,7 +27,8 @@ main() {
 
     # if there are no vscodeExtensions specified
     if [[ -z "${vscodeExtensions:-}" ]]; then
-        echo "warn: vscodeProfileHook used, but no vscodeExtensions were actually specified"
+        # shellcheck disable=SC2016 # those are markdown-style backticks, not a subshell
+        echo -e '\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: vscode-ext-hook used, but `vscodeExtensions` was empty or unset'
         return
     fi
 
@@ -52,7 +53,7 @@ main() {
         ln -s -- "$ext" "$ext_dir/$ext_name"
         generateSingleManifest "$ext_dir/$ext_name" \
             > "$ext_dir/$ext_name.manifest.json" \
-        || echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: user-installed extension \e[1m'$ext_name'\e[0m doesn't have any package.json (is it corrupted?), skipping" >&2
+        || echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: couldn't parse package.json of user-installed extension \e[1m'$ext_name'\e[0m (is it corrupted?), skipping" >&2
     done
 
     # 2. put all the extensions from `$vscodeExtensions` into the temp folder,
