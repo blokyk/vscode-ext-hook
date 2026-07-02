@@ -22,6 +22,27 @@
 # (such as writing most of this in bash instead of nix...)
 
 main() {
+    generateExtensionsFor "vscode"      # vscode uses ~/.vscode
+    generateExtensionsFor "vscode-oss"  # vscodium uses ~/.vscode-oss
+
+    # this is so dumb...
+    # vscode tries to reuse the same extension host if two instances have the same
+    # profile, even if they don't have the same extension dir.
+    # to "fool" it into working correctly (i.e. starting a new extension host), we
+    # have to "create a new profile" and start it using that; thankfully, vscode is
+    # dumb enough to not see through symbolic links, so it's enough to just link to
+    # the original profile, which has the advantage of making sure global changes
+    # the user made in the wrapped vscode are persisted to their actual profile
+    # 5. create link to default vscode user-data-dir
+    local old_data_dir="${XDG_CONFIG_HOME:-${HOME:-~}}/Code"
+    local new_data_dir="${TMPDIR:-$TMP}/Code"
+    if ! [[ -e "$new_data_dir" ]]; then
+        ln --no-target-directory --symbolic "$old_data_dir" "$new_data_dir" || true
+    fi
+}
+
+# $1: variant name "either 'vscode' or 'vscode-oss'"
+generateExtensionsFor() {
     local ext ext_dir ext_name
     local variant="$1"
 
@@ -38,7 +59,7 @@ main() {
 
     for ext in "$HOME/.$variant/extensions/"*; do
         ext_name="$(stripVersion "$(basename "$ext")")"
-        # don't copy the old extensions.json
+        # don't copy the old extensions.json file
         if [[ "$ext_name" = "extensions.json" ]]; then
             continue
         fi
@@ -72,12 +93,17 @@ main() {
 
         ext_name="$(stripVersion "$(basename "$ext")")"
 
+        # if the extension already exists _and_ it isn't equivalent, then warn the user
         if [[ -e "$ext_dir/$ext_name" ]]; then
+            # if it's just this exact build of this exact extension, no need to warn, since it is perfectly equivalent
+            if [[ "$(realpath "$ext_dir/$ext_name")" == "$(realpath "$ext")" ]]; then
+                continue
+            fi
             echo -e "\e[1;33mWARN\e[0;33m[vscode-ext-hook]\e[0m: in this shell, the nix-shell-provided extension \e[1m'$ext_name'\e[0m will take precedence over user-installed version" >&2
             rm "$ext_dir/$ext_name"
         fi
 
-        ln --force -s -- "$ext" "$ext_dir/$ext_name"
+        ln --no-target-directory --force --symbolic -- "$ext" "$ext_dir/$ext_name"
         generateSingleManifest "$ext_dir/$ext_name" \
             > "$ext_dir/$ext_name.manifest.json"
     done
@@ -89,17 +115,6 @@ main() {
 
     # 4. cleanup temporary manifests
     # rm "$ext_dir"/*.manifest.json
-
-    # this is so dumb...
-    # vscode tries to reuse the same extension host if two instances have the same
-    # profile, even if they don't have the same extension dir.
-    # to "fool" it into working correctly (i.e. starting a new extension host), we
-    # have to "create a new profile" and start it using that; thankfully, vscode is
-    # dumb enough to not see through symbolic links, so it's enough to just link to
-    # the original profile, which has the advantage of making sure global changes
-    # the user made in the wrapped vscode are persisted to their actual profile
-    # 5. create link to default vscode user-data-dir
-    ln -s "${XDG_CONFIG_HOME:-${HOME:-~}}/Code" "${TMPDIR:-$TMP}/Code" || true
 }
 
 # the stdenv one is defined after hooks run -_-
@@ -161,6 +176,5 @@ generateSingleManifest() {
 }
 
 if (( ! ${dontAddVscodeExtensions:-0} )); then
-    main "vscode"     # vscode uses ~/.vscode
-    main "vscode-oss" # vscodium uses ~/.vscode-oss
+    main  
 fi
