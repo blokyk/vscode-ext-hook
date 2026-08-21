@@ -34,7 +34,7 @@ main() {
     # the original profile, which has the advantage of making sure global changes
     # the user made in the wrapped vscode are persisted to their actual profile
     # 5. create link to default vscode user-data-dir
-    local old_data_dir="${XDG_CONFIG_HOME:-${HOME:-~}}/Code"
+    local old_data_dir="${XDG_CONFIG_HOME:-${HOME:-~}/.config}/Code"
     local new_data_dir="${TMPDIR:-$TMP}/Code"
     if ! [[ -e "$new_data_dir" ]]; then
         ln --no-target-directory --symbolic "$old_data_dir" "$new_data_dir" || true
