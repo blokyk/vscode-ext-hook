@@ -1,4 +1,5 @@
 {
+  curl,
   jq,
   lib,
   linkFarm,
@@ -8,6 +9,7 @@ let
   wrapper = writeShellApplication {
     name = "vscode-extensions-wrapper.sh";
     text = builtins.readFile ./wrapper.sh;
+    runtimeInputs = [ install-extension-wrapper ];
     inheritPath = true; # VERY important
   };
 
@@ -16,6 +18,13 @@ let
     text = builtins.readFile ./hook.sh;
     runtimeInputs = [ jq ];
     inheritPath = true; # VERY important
+  };
+
+  install-extension-wrapper = {
+    name = "install-vscode-ext";
+    text = builtins.readFile ./install-extension.sh;
+    runtimeInputs = [ curl jq ];
+    inheritPath = true;
   };
 in
 linkFarm "vscode-ext-hook" [
