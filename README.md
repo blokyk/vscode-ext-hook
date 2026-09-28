@@ -28,6 +28,28 @@ pkgs.mkShell {
 }
 ```
 
+> [!TIP]
+>
+> Using non-packaged extensions from the marketplace is just as easy as packaged ones (i.e. from `pkgs.vscode-extensions`), by using `pkgs.vscode-utils.extensionsFromVscodeMarketplace`
+>
+> <details><summary>Example of using marketplace extensions</summary>
+>
+> ```nix
+> vscodeExtensions =
+>   let
+>     nixExts = with vscode-extensions; [
+>       rust-lang.rust-analyzer
+>     ];
+>
+>     mktplcExts = vscode-utils.extensionsFromVscodeMarketplace [
+>       { name = "vscode-glsllint"; publisher = "dtoplak"; version = "1.9.2"; hash = "sha256-HALX26nx3Fudi20n4azuAfLtInIYp+txbs2utVR394w="; }
+>     ];
+>   in
+>    nixExts ++ mktplcExts;
+> ```
+>
+> </details>
+
 ## Features
 
 The two important features of this hook are:
@@ -60,7 +82,7 @@ always keep working for vscodium. If you're a vscodium user, please open an
 issue if it ever breaks, I'll get on it as quickly as possible!
 
 Currently, only Linux is supported, not macOS. I have no idea if macOS works,
-and I have no way to test it ¯\\\_(ツ)\_/¯
+and I have no way to test it. ¯\\\_(ツ)\_/¯
 
 ## Contributing
 
